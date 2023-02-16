@@ -4,6 +4,17 @@
 
 ## Aim
 
+### Install and Configure AWS Command Line Interface
+### Setting up our networking resources such as Virtual Private Cloud (VPC), Internet Gateway, Route Table, Subnets and Routes using Terraform for infrastructure setup and tear down.
+
+
+## Prerequisites
+
+### Before running the Terraform script, we should have the following:
+
+#### An AWS account with necessary permissions to create VPC, subnets, and other resources.
+#### Terraform installed on our local machine.
+#### AWS Command Line Interface installed and cvonfigured
 ## Execution steps
 
 ### terraform init

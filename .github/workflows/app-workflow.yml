@@ -1,4 +1,8 @@
-on: [push]
+name: Validate terraform
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
 
 jobs:
   validate:
@@ -7,6 +11,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+
+      - name: terraform-fmt
+        uses: dflook/terraform-fmt@v1.29.1
 
       - name: terraform validate
         uses: dflook/terraform-validate@v1

@@ -14,10 +14,11 @@
 
 #### An AWS account with necessary permissions to create VPC, subnets, and other resources.
 #### Terraform installed on our local machine.
-#### AWS Command Line Interface installed and cvonfigured
+#### AWS Command Line Interface installed and configured
 #### The EC2 instance is launched in the VPC created by the Terraform template.
 #### Added app security group
 #### Create EC2 instance with the required specifications.
+#### Create DB Security Group, S3 Bucket, RDS Parameter Group, RDS Instance.
 ## Execution steps
 
 ### terraform init

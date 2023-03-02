@@ -149,13 +149,12 @@ resource "aws_route_table_association" "rt_associate_private_1" {
 #   route_table_id = aws_route_table.private_route_table_2.id
 # }
 
-resource "random_id" "random_bucket_suffix" {
-  byte_length = 4
+resource "random_uuid" "random_bucket_suffix" {
 }
 
-resource "aws_s3_bucket" "s3_bucket" {
-  bucket = "csye6225-${var.aws_profile}-${random_id.random_bucket_suffix.hex}"
-  acl    = "private"
+resource "aws_s3_bucket" "webapp_s3_bucket" {
+  bucket = "webapp-s3-${var.aws_profile}-${random_uuid.random_bucket_suffix.result}"
+  # acl    = "private"
   # server_side_encryption_configuration {
   #   rule {
   #     apply_server_side_encryption_by_default {
@@ -167,7 +166,7 @@ resource "aws_s3_bucket" "s3_bucket" {
 }
 
 resource "aws_s3_bucket_public_access_block" "s3_bucket_public_access_block" {
-  bucket = aws_s3_bucket.s3_bucket.id
+  bucket = aws_s3_bucket.webapp_s3_bucket.id
 
   block_public_acls       = true
   ignore_public_acls      = true
@@ -176,7 +175,7 @@ resource "aws_s3_bucket_public_access_block" "s3_bucket_public_access_block" {
 }
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "s3_bucket_encryption" {
-  bucket = aws_s3_bucket.s3_bucket.id
+  bucket = aws_s3_bucket.webapp_s3_bucket.id
   rule {
     apply_server_side_encryption_by_default {
       sse_algorithm = "AES256"
@@ -185,7 +184,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "s3_bucket_encrypt
 }
 
 resource "aws_s3_bucket_lifecycle_configuration" "s3_bucket_lifecycle" {
-  bucket = aws_s3_bucket.s3_bucket.id
+  bucket = aws_s3_bucket.webapp_s3_bucket.id
   rule {
     id     = "transition-objects-to-standard-ia"
     status = "Enabled"
@@ -204,15 +203,6 @@ resource "aws_s3_bucket_lifecycle_configuration" "s3_bucket_lifecycle" {
   #     days = 14
   #   }
   # }
-}
-
-resource "aws_iam_instance_profile" "s3_access_instance_profile" {
-  name = var.s3_iam_pro
-  role = aws_iam_role.s3_access_role.name
-
-  tags = {
-    Terraform = "true"
-  }
 }
 
 resource "aws_iam_role" "s3_access_role" {
@@ -236,6 +226,15 @@ resource "aws_iam_role" "s3_access_role" {
   }
 }
 
+resource "aws_iam_instance_profile" "s3_access_instance_profile" {
+  name = var.s3_iam_pro
+  role = aws_iam_role.s3_access_role.name
+
+  tags = {
+    Terraform = "true"
+  }
+}
+
 resource "aws_iam_policy" "s3_access_policy" {
   name = var.s3_iam_pol
   policy = jsonencode({
@@ -249,8 +248,8 @@ resource "aws_iam_policy" "s3_access_policy" {
         ],
         "Effect" : "Allow",
         "Resource" : [
-          "arn:aws:s3:::${aws_s3_bucket.s3_bucket.bucket}",
-          "arn:aws:s3:::${aws_s3_bucket.s3_bucket.bucket}/*"
+          "arn:aws:s3:::${aws_s3_bucket.webapp_s3_bucket.bucket}",
+          "arn:aws:s3:::${aws_s3_bucket.webapp_s3_bucket.bucket}/*"
         ]
       }
     ]
@@ -262,31 +261,41 @@ resource "aws_iam_role_policy_attachment" "s3_access_role_policy_attachment" {
   role       = aws_iam_role.s3_access_role.name
 }
 
-resource "aws_db_instance" "rds_instance" {
-  identifier           = var.db_username
-  allocated_storage    = 20
-  engine               = var.db_engine
-  engine_version       = var.db_engine_version
-  instance_class       = var.instance_class
-  db_name              = var.db_username
-  username             = var.db_username
-  password             = var.db_password
-  parameter_group_name = aws_db_parameter_group.parameter_group.name
-  vpc_security_group_ids = [
-    aws_security_group.db_security_group.id
+resource "aws_db_subnet_group" "rds_subnet_group" {
+  name = "rds_subnet_group"
+  subnet_ids = [
+    aws_subnet.private_subnets_1[0].id,
+    aws_subnet.private_subnets_1[1].id,
+    aws_subnet.private_subnets_1[2].id
   ]
-  skip_final_snapshot = true
-  multi_az            = false
-  publicly_accessible = false
-
-  db_subnet_group_name = aws_db_subnet_group.my_subnet_group.name
-
+  description = "Subnet group for the RDS instance"
 }
 
-resource "aws_db_parameter_group" "parameter_group" {
-  name_prefix = "${var.aws_profile}-rds-db-parameter-group"
-  family      = "${var.db_engine}-${var.db_engine_version}"
-  description = "Custom parameter group for ${var.db_engine}"
+resource "aws_db_instance" "rds_instance" {
+  db_name                = var.DB_NAME
+  identifier             = var.DB_IDENTIFIER
+  engine                 = var.db_engine
+  instance_class         = "db.t3.micro"
+  multi_az               = false
+  username               = var.DB_USERNAME
+  password               = var.DB_PASSWORD
+  db_subnet_group_name   = aws_db_subnet_group.rds_subnet_group.name
+  vpc_security_group_ids = [aws_security_group.db_security_group.id]
+  publicly_accessible    = false
+  parameter_group_name   = aws_db_parameter_group.rds_parameter_group.name
+  allocated_storage      = 20
+  skip_final_snapshot    = true
+  #   engine_version         = "5.7"
+
+  tags = {
+    Name = "csye6225_rds"
+  }
+}
+
+resource "aws_db_parameter_group" "rds_parameter_group" {
+  name_prefix = "rds-db-parameter-group"
+  family      = "mysql8.0"
+  description = "MySQL parameter group for RDS DB"
   # tags        = local.common_tags
 
   parameter {
@@ -300,48 +309,80 @@ resource "aws_db_parameter_group" "parameter_group" {
   }
 }
 
-resource "aws_security_group" "application_sec_grp" {
-  name_prefix = var.security_grp_name
+resource "aws_security_group_rule" "rds_ingress" {
+  type                     = "ingress"
+  from_port                = var.ports[5]
+  to_port                  = var.ports[5]
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.db_security_group.id
+  source_security_group_id = aws_security_group.application.id
+}
+
+resource "aws_security_group_rule" "rds_egress" {
+  type                     = "egress"
+  from_port                = var.ports[5]
+  to_port                  = var.ports[5]
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.db_security_group.id
+  source_security_group_id = aws_security_group.application.id
+}
+
+resource "aws_security_group_rule" "ec2_ingress" {
+  type                     = "ingress"
+  from_port                = var.ports[5]
+  to_port                  = var.ports[5]
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.application.id
+  source_security_group_id = aws_security_group.db_security_group.id
+}
+
+resource "aws_security_group" "application" {
+  name        = var.security_grp_name
+  description = "security group for ec2-webapp"
   vpc_id      = aws_vpc.vpc_1.id
 
   ingress {
-    from_port   = var.ports[0]
-    to_port     = var.ports[0]
-    protocol    = var.protocol
+    from_port   = var.ports[3]
+    to_port     = var.ports[3]
+    protocol    = "tcp"
     cidr_blocks = [var.rt_cidr]
   }
 
   ingress {
     from_port   = var.ports[1]
     to_port     = var.ports[1]
-    protocol    = var.protocol
+    protocol    = "tcp"
+    cidr_blocks = [var.rt_cidr]
+  }
+
+  ingress {
+    from_port   = var.ports[0]
+    to_port     = var.ports[0]
+    protocol    = "tcp"
     cidr_blocks = [var.rt_cidr]
   }
 
   ingress {
     from_port   = var.ports[2]
     to_port     = var.ports[2]
-    protocol    = var.protocol
-    cidr_blocks = [var.rt_cidr]
-  }
-
-  ingress {
-    from_port   = var.ports[3]
-    to_port     = var.ports[3]
-    protocol    = var.protocol
+    protocol    = "tcp"
     cidr_blocks = [var.rt_cidr]
   }
 
   egress {
     from_port = var.ports[5]
     to_port   = var.ports[5]
-    protocol  = var.protocol
+    protocol  = "tcp"
+    #cidr_blocks = ["0.0.0.0/0"]
   }
   egress {
     from_port   = var.ports[4]
     to_port     = var.ports[4]
-    protocol    = var.e_protocol
+    protocol    = "-1"
     cidr_blocks = [var.rt_cidr]
+  }
+  tags = {
+    Name = var.security_grp_name
   }
 }
 
@@ -352,43 +393,6 @@ resource "aws_security_group" "db_security_group" {
     Name = "${var.db_security_grp_name}"
   }
 }
-
-# Add an inbound rule to the RDS security group to allow traffic from the EC2 security group
-resource "aws_security_group_rule" "rds_ingress" {
-  type                     = "ingress"
-  from_port                = var.ports[5]
-  to_port                  = var.ports[5]
-  protocol                 = var.protocol
-  security_group_id        = aws_security_group.db_security_group.id
-  source_security_group_id = aws_security_group.application_sec_grp.id
-}
-# Add an outbound rule to the RDS security group to allow traffic from the EC2 security group
-resource "aws_security_group_rule" "rds_egress" {
-  type                     = "egress"
-  from_port                = var.ports[5]
-  to_port                  = var.ports[5]
-  protocol                 = var.protocol
-  security_group_id        = aws_security_group.db_security_group.id
-  source_security_group_id = aws_security_group.application_sec_grp.id
-}
-
-# Add an inbound rule to the EC2 security group to allow traffic to the RDS security group
-resource "aws_security_group_rule" "ec2_ingress" {
-  type                     = "ingress"
-  from_port                = var.ports[5]
-  to_port                  = var.ports[5]
-  protocol                 = var.protocol
-  security_group_id        = aws_security_group.db_security_group.id
-  source_security_group_id = aws_security_group.application_sec_grp.id
-}
-
-resource "aws_db_subnet_group" "my_subnet_group" {
-  name        = "my-subnet-group"
-  description = "My subnet group for RDS instance"
-
-  subnet_ids = [aws_subnet.private_subnets_1[0].id, aws_subnet.private_subnets_1[1].id, aws_subnet.private_subnets_1[2].id]
-}
-
 resource "aws_key_pair" "app_key_pair" {
   key_name   = var.keypair_name
   public_key = file(var.keypair_path)
@@ -403,49 +407,68 @@ resource "aws_key_pair" "app_key_pair" {
 #   }
 # }
 
-resource "aws_instance" "prod_ec2" {
+resource "aws_instance" "webapp_ec2" {
   ami                         = var.ami_id
   instance_type               = var.instance_type
   subnet_id                   = aws_subnet.public_subnets_1[0].id
-  vpc_security_group_ids      = [aws_security_group.application_sec_grp.id]
+  vpc_security_group_ids      = [aws_security_group.application.id]
   key_name                    = aws_key_pair.app_key_pair.key_name
-  disable_api_termination     = false
-  ebs_optimized               = false
   associate_public_ip_address = true
+  ebs_optimized               = false
+  iam_instance_profile        = aws_iam_instance_profile.s3_access_instance_profile.name
   root_block_device {
     volume_size           = var.ebs_vol_size
     volume_type           = var.ebs_vol_type
     delete_on_termination = true
   }
-  iam_instance_profile = aws_iam_instance_profile.s3_access_instance_profile.name
+  disable_api_termination = false
+
   tags = {
     Name = var.ec2_name
   }
-
-  user_data = <<EOF
+  user_data = <<EOT
 #!/bin/bash
-echo "[Unit]
+cat <<EOF > /etc/systemd/system/webapp.service
+[Unit]
 Description=Webapp Service
 After=network.target
 
 [Service]
-Environment="DB_HOST=${element(split(":", aws_db_instance.rds_instance.endpoint), 0)}"
-Environment="DB_USER=${aws_db_instance.rds_instance.username}"
-Environment="DB_PASSWORD=${aws_db_instance.rds_instance.password}"
-Environment="DB_DATABASE=${aws_db_instance.rds_instance.db_name}"
-Environment="AWS_BUCKET_NAME=${aws_s3_bucket.s3_bucket.bucket}"
+Environment="NODE_ENV=dev"
+Environment="DATABASE_PORT=3306"
+Environment="DATABASE_DIALECT=mysql"
+Environment="DATABASE_HOST=${element(split(":", aws_db_instance.rds_instance.endpoint), 0)}"
+Environment="DATABASE_USER=${aws_db_instance.rds_instance.username}"
+Environment="DATABASE_PASSWORD=${aws_db_instance.rds_instance.password}"
+Environment="DATABASE=${aws_db_instance.rds_instance.db_name}"
+Environment="AWS_BUCKET_NAME=${aws_s3_bucket.webapp_s3_bucket.bucket}"
 Environment="AWS_REGION=${var.aws_region}"
 
 Type=simple
 User=ec2-user
 WorkingDirectory=/home/ec2-user/webapp
-ExecStart=/usr/bin/node server.js
+ExecStart=/usr/bin/node listener.js
 Restart=on-failure
 
 [Install]
 WantedBy=multi-user.target" > /etc/systemd/system/webapp.service
+EOF
+
+
 sudo systemctl daemon-reload
 sudo systemctl start webapp.service
 sudo systemctl enable webapp.service
-EOF
+
+echo 'export NODE_ENV=dev' >> /home/ec2-user/.bashrc,
+echo 'export PORT=3000' >> /home/ec2-user/.bashrc,
+echo 'export DATABASE_DIALECT=mysql' >> /home/ec2-user/.bashrc,
+echo 'export DATABASE_HOST=${element(split(":", aws_db_instance.rds_instance.endpoint), 0)}' >> /home/ec2-user/.bashrc,
+echo 'export DATABASE_USERNAME=${aws_db_instance.rds_instance.username}' >> /home/ec2-user/.bashrc,
+echo 'export DATABASE_PASSWORD=${aws_db_instance.rds_instance.password}' >> /home/ec2-user/.bashrc,
+echo 'export DATABASE_NAME=${aws_db_instance.rds_instance.db_name}' >> /home/ec2-user/.bashrc,
+echo 'export AWS_BUCKET_NAME=${aws_s3_bucket.webapp_s3_bucket.bucket}' >> /home/ec2-user/.bashrc,
+echo 'export AWS_REGION=${var.aws_region}' >> /home/ec2-user/.bashrc,
+source /home/ec2-user/.bashrc
+EOT
+
 }

@@ -219,11 +219,11 @@ variable "device_name" {
   default     = "/dev/sdh"
 }
 
-# variable "ebs_vol_name" {
-#   type        = string
-#   description = "ebs volume name"
-#   default     = "ebs_volume"
-# }
+variable "ebs_vol_name" {
+  type        = string
+  description = "ebs volume name"
+  default     = "ebs_volume"
+}
 
 variable "ec2_name" {
   type        = string
@@ -236,14 +236,21 @@ variable "ami_id" {
   description = "ami id for ec2 instance"
 }
 
-variable "db_username" {
-  type        = string
-  description = "database user name"
-  default     = "csye6225"
+variable "DB_IDENTIFIER" {
+  type = string
 }
 
-variable "db_password" {
-  type        = string
-  description = "database password"
-  default     = "csye6225"
+variable "DB_NAME" {
+  type = string
+}
+
+variable "DB_USERNAME" {
+  type = string
+}
+variable "DB_PASSWORD" {
+  type = string
+}
+
+variable "DB_HOST" {
+  type = string
 }

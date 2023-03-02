@@ -3,26 +3,18 @@ provider "aws" {
   profile = var.aws_profile
 }
 
-resource "aws_vpc" "vpc_1" {
-  cidr_block = var.vpc_cidr[0]
+resource "aws_vpc" "main" {
+  cidr_block = var.cidr_block
 
   tags = {
-    Name = "${var.vpc_name_1}"
+    Name = "${var.vpc_name}-${var.cidr_block}"
   }
 }
 
-# resource "aws_vpc" "vpc_2" {
-#   cidr_block = var.vpc_cidr[1]
-
-#   tags = {
-#     Name = "${var.vpc_name_2}"
-#   }
-# }
-
-resource "aws_subnet" "public_subnets_1" {
+resource "aws_subnet" "public" {
   count             = 3
-  vpc_id            = aws_vpc.vpc_1.id
-  cidr_block        = "${var.subnet_prefix_1}${count.index + 1}${var.subnet_postfix}"
+  cidr_block        = "${var.sub_prefix}${count.index + 1}${var.sub_postfix}"
+  vpc_id            = aws_vpc.main.id
   availability_zone = "${var.aws_region}${var.availability_zones[count.index]}"
 
   tags = {
@@ -30,21 +22,10 @@ resource "aws_subnet" "public_subnets_1" {
   }
 }
 
-# resource "aws_subnet" "public_subnets_2" {
-#   count             = 3
-#   vpc_id            = aws_vpc.vpc_2.id
-#   cidr_block        = "${var.subnet_prefix_2}${count.index + 1}${var.subnet_postfix}"
-#   availability_zone = "${var.aws_region}${var.availability_zones[count.index]}"
-
-#   tags = {
-#     Name = "${var.public_subnet_name}-${count.index + 1}"
-#   }
-# }
-
-resource "aws_subnet" "private_subnets_1" {
+resource "aws_subnet" "private" {
   count             = 3
-  vpc_id            = aws_vpc.vpc_1.id
-  cidr_block        = "${var.subnet_prefix_1}${count.index + 4}${var.subnet_postfix}"
+  cidr_block        = "${var.sub_prefix}${count.index + 4}${var.sub_postfix}"
+  vpc_id            = aws_vpc.main.id
   availability_zone = "${var.aws_region}${var.availability_zones[count.index]}"
 
   tags = {
@@ -52,131 +33,218 @@ resource "aws_subnet" "private_subnets_1" {
   }
 }
 
-# resource "aws_subnet" "private_subnets_2" {
-#   count             = 3
-#   vpc_id            = aws_vpc.vpc_2.id
-#   cidr_block        = "${var.subnet_prefix_2}${count.index + 4}${var.subnet_postfix}"
-#   availability_zone = "${var.aws_region}${var.availability_zones[count.index]}"
-
-#   tags = {
-#     Name = "${var.private_subnet_name}-${count.index + 1}"
-#   }
-# }
-
-resource "aws_internet_gateway" "gw1" {
-  vpc_id = aws_vpc.vpc_1.id
+resource "aws_internet_gateway" "gw" {
+  vpc_id = aws_vpc.main.id
 
   tags = {
-    Name = "${var.gateway_name_1}"
+    Name = "${var.gateway_name}-${var.cidr_block}"
   }
 }
 
-# resource "aws_internet_gateway" "gw2" {
-#   vpc_id = aws_vpc.vpc_2.id
-
-#   tags = {
-#     Name = "${var.gateway_name_2}"
-#   }
-# }
-
-resource "aws_route_table" "public_route_table_1" {
-  vpc_id = aws_vpc.vpc_1.id
+resource "aws_route_table" "public" {
+  vpc_id = aws_vpc.main.id
 
   route {
-    cidr_block = var.rt_cidr
-    gateway_id = aws_internet_gateway.gw1.id
+    cidr_block = var.cidr_gateway
+    gateway_id = aws_internet_gateway.gw.id
   }
 
   tags = {
-    Name = "${var.public_rt_name}"
+    Name = "${var.public_table_name}-${var.cidr_block}"
   }
 }
 
-# resource "aws_route_table" "public_route_table_2" {
-#   vpc_id = aws_vpc.vpc_2.id
-
-#   route {
-#     cidr_block = var.rt_cidr
-#     gateway_id = aws_internet_gateway.gw2.id
-#   }
-
-#   tags = {
-#     Name = "${var.public_rt_name}"
-#   }
-# }
-
-resource "aws_route_table_association" "rt_associate_public_1" {
+resource "aws_route_table_association" "public" {
   count          = 3
-  subnet_id      = aws_subnet.public_subnets_1[count.index].id
-  route_table_id = aws_route_table.public_route_table_1.id
+  subnet_id      = aws_subnet.public[count.index].id
+  route_table_id = aws_route_table.public.id
 }
 
-# resource "aws_route_table_association" "rt_associate_public_2" {
-#   count          = 3
-#   subnet_id      = aws_subnet.public_subnets_2[count.index].id
-#   route_table_id = aws_route_table.public_route_table_2.id
-# }
+resource "aws_route_table" "private" {
 
-resource "aws_route_table" "private_route_table_1" {
-
-  vpc_id = aws_vpc.vpc_1.id
+  vpc_id = aws_vpc.main.id
 
   tags = {
-    Name = "${var.private_rt_name}"
+    Name = "${var.private_table_name}-${var.cidr_block}"
   }
 
 }
 
-# resource "aws_route_table" "private_route_table_2" {
-
-#   vpc_id = aws_vpc.vpc_2.id
-
-#   tags = {
-#     Name = "${var.private_rt_name}"
-#   }
-
-# }
-
-resource "aws_route_table_association" "rt_associate_private_1" {
+resource "aws_route_table_association" "private" {
   count          = 3
-  subnet_id      = aws_subnet.private_subnets_1[count.index].id
-  route_table_id = aws_route_table.private_route_table_1.id
+  subnet_id      = aws_subnet.private[count.index].id
+  route_table_id = aws_route_table.private.id
 }
 
-# resource "aws_route_table_association" "rt_associate_private_2" {
-#   count          = 3
-#   subnet_id      = aws_subnet.private_subnets_2[count.index].id
-#   route_table_id = aws_route_table.private_route_table_2.id
-# }
+resource "aws_security_group" "application" {
+  name_prefix = var.security_group_name
+  vpc_id      = aws_vpc.main.id
 
-resource "random_id" "random_bucket_suffix" {
-  byte_length = 4
+  ingress {
+    from_port   = var.ports[0]
+    to_port     = var.ports[0]
+    protocol    = var.protocol
+    cidr_blocks = [var.cidr_gateway]
+  }
+
+  ingress {
+    from_port   = var.ports[1]
+    to_port     = var.ports[1]
+    protocol    = var.protocol
+    cidr_blocks = [var.cidr_gateway]
+  }
+
+  ingress {
+    from_port   = var.ports[2]
+    to_port     = var.ports[2]
+    protocol    = var.protocol
+    cidr_blocks = [var.cidr_gateway]
+  }
+
+  ingress {
+    from_port   = var.ports[3]
+    to_port     = var.ports[3]
+    protocol    = var.protocol
+    cidr_blocks = [var.cidr_gateway]
+  }
+
+  egress {
+    from_port   = var.ports[4]
+    to_port     = var.ports[4]
+    protocol    = var.eprotocol
+    cidr_blocks = [var.cidr_gateway]
+  }
 }
 
-resource "aws_s3_bucket" "s3_bucket" {
-  bucket = "csye6225-${var.aws_profile}-${random_id.random_bucket_suffix.hex}"
-  acl    = "private"
-  # server_side_encryption_configuration {
-  #   rule {
-  #     apply_server_side_encryption_by_default {
-  #       sse_algorithm = "AES256"
-  #     }
-  #   }
-  # }
+resource "aws_key_pair" "app_keypair" {
+  key_name   = var.keypair_name
+  public_key = file(var.keypair_path)
+}
+
+resource "aws_ebs_volume" "ebs_volume" {
+  availability_zone = "${var.aws_region}${var.availability_zones[0]}"
+  size              = var.ebs_volume_size
+  type              = var.ebs_volume_type
+  tags = {
+    Name = var.ebs_volume_name
+  }
+}
+
+resource "aws_iam_instance_profile" "profile" {
+  name = "ec2-profile"
+  role = aws_iam_role.EC2-CSYE6225.name
+}
+
+resource "aws_instance" "csye_ec2" {
+  ami                    = var.ami_id
+  instance_type          = var.instance_type
+  subnet_id              = aws_subnet.public[0].id
+  vpc_security_group_ids = [aws_security_group.application.id]
+  tags = {
+    Name = var.ec2_name
+  }
+  key_name = aws_key_pair.app_keypair.key_name
+
+  associate_public_ip_address = true
+  disable_api_termination     = false
+
+  root_block_device {
+    volume_size           = 50
+    delete_on_termination = true
+  }
+
+  iam_instance_profile = aws_iam_instance_profile.profile.name
+
+  connection {
+    type        = var.connection_type
+    user        = var.user
+    private_key = file(var.privatekey_path)
+    timeout     = var.ssh_timeout
+    host        = self.public_ip
+  }
+
+  #Sending User Data to EC2
+  user_data = <<EOT
+#!/bin/bash
+cat <<EOF > /etc/systemd/system/webapp.service
+[Unit]
+Description=Webapp Service
+After=network.target
+
+[Service]
+Environment="NODE_ENV=dev"
+Environment="PORT=3000"
+Environment="DIALECT=mysql"
+Environment="DB_HOST=${element(split(":", aws_db_instance.rds_instance.endpoint), 0)}"
+Environment="DB_USERNAME=${aws_db_instance.rds_instance.username}"
+Environment="DB_PASSWORD=${aws_db_instance.rds_instance.password}"
+Environment="DB_NAME=${aws_db_instance.rds_instance.db_name}"
+Environment="S3_BUCKET_NAME=${aws_s3_bucket.private_bucket.bucket}"
+Environment="AWS_REGION=${var.aws_region}"
+
+Type=simple
+User=ec2-user
+WorkingDirectory=/home/ec2-user/webapp
+ExecStart=/usr/bin/node server-listener.js
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target" > /etc/systemd/system/webapp.service
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl start webapp.service
+sudo systemctl enable webapp.service
+
+echo 'export NODE_ENV=dev' >> /home/ec2-user/.bashrc,
+echo 'export PORT=3000' >> /home/ec2-user/.bashrc,
+echo 'export DIALECT=mysql' >> /home/ec2-user/.bashrc,
+echo 'export DB_HOST=${element(split(":", aws_db_instance.rds_instance.endpoint), 0)}' >> /home/ec2-user/.bashrc,
+echo 'export DB_USERNAME=${aws_db_instance.rds_instance.username}' >> /home/ec2-user/.bashrc,
+echo 'export DB_PASSWORD=${aws_db_instance.rds_instance.password}' >> /home/ec2-user/.bashrc,
+echo 'export DB_NAME=${aws_db_instance.rds_instance.db_name}' >> /home/ec2-user/.bashrc,
+echo 'export S3_BUCKET_NAME=${aws_s3_bucket.private_bucket.bucket}' >> /home/ec2-user/.bashrc,
+echo 'export AWS_REGION=${var.aws_region}' >> /home/ec2-user/.bashrc,
+source /home/ec2-user/.bashrc
+EOT
+}
+
+resource "aws_volume_attachment" "ebsAttach" {
+
+  device_name = var.device_name
+  volume_id   = aws_ebs_volume.ebs_volume.id
+  instance_id = aws_instance.csye_ec2.id
+
+}
+
+resource "aws_eip" "ec2_eip" {
+  vpc = true
+}
+
+resource "aws_eip_association" "ec2_eip_assoc" {
+  instance_id   = aws_instance.csye_ec2.id
+  allocation_id = aws_eip.ec2_eip.id
+}
+
+resource "random_string" "random" {
+  length  = 8
+  special = false
+  upper   = false
+}
+
+resource "aws_s3_bucket" "private_bucket" {
+  bucket        = "${var.bucket_name}${random_string.random.result}${var.aws_profile}"
   force_destroy = true
 }
 
-resource "aws_s3_bucket_public_access_block" "s3_bucket_public_access_block" {
-  bucket = aws_s3_bucket.s3_bucket.id
-
-  block_public_acls       = true
-  ignore_public_acls      = true
-  block_public_policy     = true
-  restrict_public_buckets = true
+resource "aws_s3_bucket_acl" "example_bucket_acl" {
+  bucket = aws_s3_bucket.private_bucket.id
+  acl    = "private"
 }
 
-resource "aws_s3_bucket_server_side_encryption_configuration" "s3_bucket_encryption" {
-  bucket = aws_s3_bucket.s3_bucket.id
+resource "aws_s3_bucket_server_side_encryption_configuration" "example" {
+  bucket = aws_s3_bucket.private_bucket.id
+
   rule {
     apply_server_side_encryption_by_default {
       sse_algorithm = "AES256"
@@ -184,268 +252,158 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "s3_bucket_encrypt
   }
 }
 
-resource "aws_s3_bucket_lifecycle_configuration" "s3_bucket_lifecycle" {
-  bucket = aws_s3_bucket.s3_bucket.id
-  rule {
-    id     = "transition-objects-to-standard-ia"
-    status = "Enabled"
+resource "aws_s3_bucket_public_access_block" "access_bucket" {
+  bucket = aws_s3_bucket.private_bucket.id
 
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_lifecycle_configuration" "private_bucket_lifecycle" {
+  bucket = aws_s3_bucket.private_bucket.id
+  rule {
+    id     = "delete-objects"
+    status = "Enabled"
+    prefix = ""
+    expiration {
+      days = 30
+    }
+  }
+
+  rule {
+    id     = "transition-to-standard-ia"
+    status = "Enabled"
+    prefix = ""
     transition {
       days          = 30
       storage_class = "STANDARD_IA"
     }
   }
-
-  # rule {
-  #   id     = "delete-empty-bucket"
-  #   prefix = ""
-  #   status = "Enabled"
-  #   expiration {
-  #     days = 14
-  #   }
-  # }
 }
 
-resource "aws_iam_instance_profile" "s3_access_instance_profile" {
-  name = var.s3_iam_pro
-  role = aws_iam_role.s3_access_role.name
+resource "aws_s3_bucket_versioning" "private_bucket_versioning" {
+  bucket = aws_s3_bucket.private_bucket.id
 
-  tags = {
-    Terraform = "true"
+  versioning_configuration {
+    status = "Enabled"
   }
 }
 
-resource "aws_iam_role" "s3_access_role" {
-  name = var.s3_iam_role
+resource "aws_iam_policy" "WebAppS3" {
+  name        = "WebAppS3"
+  description = "Allows EC2 instances to access S3 buckets"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:GetObjectAcl",
+          "s3:PutObject",
+          "s3:PutObjectAcl",
+          "s3:DeleteObject",
+          "s3:ListBucket"
 
+        ]
+        Resource = [
+          "arn:aws:s3:::${aws_s3_bucket.private_bucket.bucket}/*",
+          "arn:aws:s3:::${aws_s3_bucket.private_bucket.bucket}"
+        ]
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role" "EC2-CSYE6225" {
+  name = "EC2-CSYE6225"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
-        Action = "sts:AssumeRole"
         Effect = "Allow"
         Principal = {
           Service = "ec2.amazonaws.com"
         }
+        Action = "sts:AssumeRole"
       }
     ]
   })
-
-  tags = {
-    Terraform = "true"
-  }
 }
 
-resource "aws_iam_policy" "s3_access_policy" {
-  name = var.s3_iam_pol
-  policy = jsonencode({
-    "Version" : "2012-10-17",
-    "Statement" : [
-      {
-        "Action" : [
-          "s3:PutObject",
-          "s3:GetObject",
-          "s3:DeleteObject"
-        ],
-        "Effect" : "Allow",
-        "Resource" : [
-          "arn:aws:s3:::${aws_s3_bucket.s3_bucket.bucket}",
-          "arn:aws:s3:::${aws_s3_bucket.s3_bucket.bucket}/*"
-        ]
-      }
-    ]
-    }
-  )
-}
-resource "aws_iam_role_policy_attachment" "s3_access_role_policy_attachment" {
-  policy_arn = aws_iam_policy.s3_access_policy.arn
-  role       = aws_iam_role.s3_access_role.name
+resource "aws_iam_role_policy_attachment" "s3_access_policy_attachment" {
+  policy_arn = aws_iam_policy.WebAppS3.arn
+  role       = aws_iam_role.EC2-CSYE6225.name
 }
 
 resource "aws_db_instance" "rds_instance" {
-  identifier           = var.db_username
-  allocated_storage    = 20
-  engine               = var.db_engine
-  engine_version       = var.db_engine_version
-  instance_class       = var.instance_class
-  db_name              = var.db_username
-  username             = var.db_username
-  password             = var.db_password
-  parameter_group_name = aws_db_parameter_group.parameter_group.name
+  allocated_storage       = 10
+  db_name                 = var.DB_USERNAME
+  engine                  = "mysql"
+  instance_class          = "db.t3.micro"
+  identifier              = var.DB_USERNAME
+  username                = var.DB_USERNAME
+  password                = var.DB_PASSWORD
+  multi_az                = false
+  publicly_accessible     = false
+  parameter_group_name    = aws_db_parameter_group.my_parameter_group.id
+  skip_final_snapshot     = true
+  apply_immediately       = true
+  backup_retention_period = 0
   vpc_security_group_ids = [
-    aws_security_group.db_security_group.id
+    aws_security_group.database_security_group.id
   ]
-  skip_final_snapshot = true
-  multi_az            = false
-  publicly_accessible = false
 
   db_subnet_group_name = aws_db_subnet_group.my_subnet_group.name
 
-}
-
-resource "aws_db_parameter_group" "parameter_group" {
-  name_prefix = "${var.aws_profile}-rds-db-parameter-group"
-  family      = "${var.db_engine}-${var.db_engine_version}"
-  description = "Custom parameter group for ${var.db_engine}"
-  # tags        = local.common_tags
-
-  parameter {
-    name  = "max_connections"
-    value = "100"
-  }
-
-  parameter {
-    name  = "innodb_buffer_pool_size"
-    value = "268435456"
-  }
-}
-
-resource "aws_security_group" "application_sec_grp" {
-  name_prefix = var.security_grp_name
-  vpc_id      = aws_vpc.vpc_1.id
-
-  ingress {
-    from_port   = var.ports[0]
-    to_port     = var.ports[0]
-    protocol    = var.protocol
-    cidr_blocks = [var.rt_cidr]
-  }
-
-  ingress {
-    from_port   = var.ports[1]
-    to_port     = var.ports[1]
-    protocol    = var.protocol
-    cidr_blocks = [var.rt_cidr]
-  }
-
-  ingress {
-    from_port   = var.ports[2]
-    to_port     = var.ports[2]
-    protocol    = var.protocol
-    cidr_blocks = [var.rt_cidr]
-  }
-
-  ingress {
-    from_port   = var.ports[3]
-    to_port     = var.ports[3]
-    protocol    = var.protocol
-    cidr_blocks = [var.rt_cidr]
-  }
-
-  egress {
-    from_port = var.ports[5]
-    to_port   = var.ports[5]
-    protocol  = var.protocol
-  }
-  egress {
-    from_port   = var.ports[4]
-    to_port     = var.ports[4]
-    protocol    = var.e_protocol
-    cidr_blocks = [var.rt_cidr]
-  }
-}
-
-resource "aws_security_group" "db_security_group" {
-  name_prefix = var.db_security_grp_name
-  vpc_id      = aws_vpc.vpc_1.id
   tags = {
-    Name = "${var.db_security_grp_name}"
+    Name = var.DB_USERNAME
   }
 }
 
-# Add an inbound rule to the RDS security group to allow traffic from the EC2 security group
-resource "aws_security_group_rule" "rds_ingress" {
-  type                     = "ingress"
-  from_port                = var.ports[5]
-  to_port                  = var.ports[5]
-  protocol                 = var.protocol
-  security_group_id        = aws_security_group.db_security_group.id
-  source_security_group_id = aws_security_group.application_sec_grp.id
-}
-# Add an outbound rule to the RDS security group to allow traffic from the EC2 security group
-resource "aws_security_group_rule" "rds_egress" {
-  type                     = "egress"
-  from_port                = var.ports[5]
-  to_port                  = var.ports[5]
-  protocol                 = var.protocol
-  security_group_id        = aws_security_group.db_security_group.id
-  source_security_group_id = aws_security_group.application_sec_grp.id
+data "aws_db_instance" "rds_instance" {
+  db_instance_identifier = aws_db_instance.rds_instance.id
 }
 
-# Add an inbound rule to the EC2 security group to allow traffic to the RDS security group
-resource "aws_security_group_rule" "ec2_ingress" {
-  type                     = "ingress"
-  from_port                = var.ports[5]
-  to_port                  = var.ports[5]
-  protocol                 = var.protocol
-  security_group_id        = aws_security_group.db_security_group.id
-  source_security_group_id = aws_security_group.application_sec_grp.id
+resource "aws_db_parameter_group" "my_parameter_group" {
+  name   = "my-parameter-group"
+  family = "mysql8.0"
+
+  parameter {
+    name  = "max_allowed_packet"
+    value = "67108864"
+  }
 }
 
 resource "aws_db_subnet_group" "my_subnet_group" {
   name        = "my-subnet-group"
   description = "My subnet group for RDS instance"
 
-  subnet_ids = [aws_subnet.private_subnets_1[0].id, aws_subnet.private_subnets_1[1].id, aws_subnet.private_subnets_1[2].id]
+  subnet_ids = [aws_subnet.private[0].id, aws_subnet.private[1].id, aws_subnet.private[2].id]
 }
 
-resource "aws_key_pair" "app_key_pair" {
-  key_name   = var.keypair_name
-  public_key = file(var.keypair_path)
-}
+resource "aws_security_group" "database_security_group" {
+  description = "Security group for RDS instances"
+  name        = "database"
+  vpc_id      = aws_vpc.main.id
 
-# resource "aws_ebs_volume" "ebs_vol" {
-#   availability_zone = "${var.aws_region}${var.availability_zones[0]}"
-#   size              = var.ebs_vol_size
-#   type              = var.ebs_vol_type
-#   tags = {
-#     Name = var.ebs_vol_name
-#   }
-# }
-
-resource "aws_instance" "prod_ec2" {
-  ami                         = var.ami_id
-  instance_type               = var.instance_type
-  subnet_id                   = aws_subnet.public_subnets_1[0].id
-  vpc_security_group_ids      = [aws_security_group.application_sec_grp.id]
-  key_name                    = aws_key_pair.app_key_pair.key_name
-  disable_api_termination     = false
-  ebs_optimized               = false
-  associate_public_ip_address = true
-  root_block_device {
-    volume_size           = var.ebs_vol_size
-    volume_type           = var.ebs_vol_type
-    delete_on_termination = true
-  }
-  iam_instance_profile = aws_iam_instance_profile.s3_access_instance_profile.name
-  tags = {
-    Name = var.ec2_name
+  ingress {
+    from_port = 3306
+    to_port   = 3306
+    protocol  = "tcp"
+    security_groups = [
+      aws_security_group.application.id
+    ]
   }
 
-  user_data = <<EOF
-#!/bin/bash
-echo "[Unit]
-Description=Webapp Service
-After=network.target
-
-[Service]
-Environment="DB_HOST=${element(split(":", aws_db_instance.rds_instance.endpoint), 0)}"
-Environment="DB_USER=${aws_db_instance.rds_instance.username}"
-Environment="DB_PASSWORD=${aws_db_instance.rds_instance.password}"
-Environment="DB_DATABASE=${aws_db_instance.rds_instance.db_name}"
-Environment="AWS_BUCKET_NAME=${aws_s3_bucket.s3_bucket.bucket}"
-Environment="AWS_REGION=${var.aws_region}"
-
-Type=simple
-User=ec2-user
-WorkingDirectory=/home/ec2-user/webapp
-ExecStart=/usr/bin/node server.js
-Restart=on-failure
-
-[Install]
-WantedBy=multi-user.target" > /etc/systemd/system/webapp.service
-sudo systemctl daemon-reload
-sudo systemctl start webapp.service
-sudo systemctl enable webapp.service
-EOF
+  egress {
+    from_port = 0
+    to_port   = 0
+    protocol  = "-1"
+    cidr_blocks = [
+      "0.0.0.0/0"
+    ]
+  }
 }

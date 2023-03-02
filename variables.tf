@@ -34,6 +34,17 @@ variable "vpc_name_2" {
   default     = "vpc_2"
 }
 
+variable "db_engine" {
+  type        = string
+  description = "Database used"
+  default     = "MySQL"
+}
+
+variable "db_engine_version" {
+  type        = string
+  description = "Database version used"
+  default     = "8.0.32"
+}
 variable "public_subnet_name" {
   type        = string
   description = "Name of the public subnet"
@@ -97,7 +108,31 @@ variable "subnet_postfix" {
 variable "security_grp_name" {
   type        = string
   description = "security group name"
-  default     = "prod application"
+  default     = "application_sec_grp"
+}
+
+variable "db_security_grp_name" {
+  type        = string
+  description = "rds database security group name"
+  default     = "db_security_grp"
+}
+
+variable "s3_iam_pol" {
+  type        = string
+  description = "IAM policy to S3 bucket"
+  default     = "webapp s3"
+}
+
+variable "s3_iam_pro" {
+  type        = string
+  description = "S3 bucket IAM instance profile"
+  default     = "s3_access_instance_profile"
+}
+
+variable "s3_iam_role" {
+  type        = string
+  description = "S3 bucket IAM role"
+  default     = "s3_access_instance_profile"
 }
 
 variable "ports" {
@@ -148,6 +183,12 @@ variable "instance_type" {
   default     = "t2.micro"
 }
 
+variable "instance_class" {
+  type        = string
+  description = "rds instance class"
+  default     = "t3.micro"
+}
+
 variable "conn_type" {
   type        = string
   description = "connection type"
@@ -178,11 +219,11 @@ variable "device_name" {
   default     = "/dev/sdh"
 }
 
-variable "ebs_vol_name" {
-  type        = string
-  description = "ebs volume name"
-  default     = "ebs_volume"
-}
+# variable "ebs_vol_name" {
+#   type        = string
+#   description = "ebs volume name"
+#   default     = "ebs_volume"
+# }
 
 variable "ec2_name" {
   type        = string
@@ -193,4 +234,16 @@ variable "ec2_name" {
 variable "ami_id" {
   type        = string
   description = "ami id for ec2 instance"
+}
+
+variable "db_username" {
+  type        = string
+  description = "database user name"
+  default     = "csye6225"
+}
+
+variable "db_password" {
+  type        = string
+  description = "database password"
+  default     = "csye6225"
 }

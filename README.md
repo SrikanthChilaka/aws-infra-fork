@@ -20,6 +20,9 @@
 #### Create EC2 instance with the required specifications.
 #### Create DB Security Group, S3 Bucket, RDS Parameter Group, RDS Instance.
 #### Configured Amazon Route 53 For DNS Service
+#### Created hosted zone for the domain in the root aws account
+#### Created a subdomain and hosted zone for the dev aws account
+#### Created a subdomain and hosted zone for the demo aws account
 #### Route53 is updated from the Terraform template.
 ## Execution steps
 

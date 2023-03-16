@@ -1,4 +1,4 @@
-# CSYE6225 Network Structures and Cloud Computing Assignment-5
+# CSYE6225 Network Structures and Cloud Computing Assignment-6
 
 ## Srikanth Chilaka - 002780059
 
@@ -19,6 +19,8 @@
 #### Added app security group
 #### Create EC2 instance with the required specifications.
 #### Create DB Security Group, S3 Bucket, RDS Parameter Group, RDS Instance.
+#### Configured Amazon Route 53 For DNS Service
+#### Route53 is updated from the Terraform template.
 ## Execution steps
 
 ### terraform init

@@ -254,3 +254,23 @@ variable "DB_PASSWORD" {
 variable "DB_HOST" {
   type = string
 }
+variable "DB_PORT" {
+  type = string
+}
+
+variable "dev_hostedzone_id" {
+  type    = string
+  default = "Z024207512LXUWZJKPWQ6"
+}
+variable "prod_hostedzone_id" {
+  type    = string
+  default = "Z06439559L3ZF7W1X0QG"
+}
+variable "dev_A_record_name" {
+  type    = string
+  default = "dev.srikanthchilaka.me"
+}
+variable "prod_A_record_name" {
+  type    = string
+  default = "prod.srikanthchilaka.me"
+}

@@ -407,6 +407,19 @@ resource "aws_key_pair" "app_key_pair" {
 #   }
 # }
 
+resource "aws_eip" "elastic_ip" {
+  instance = aws_instance.webapp_ec2.id
+  vpc      = true
+}
+
+resource "aws_route53_record" "srikanthchilaka_A_record" {
+  zone_id = var.aws_profile == "dev" ? var.dev_hostedzone_id : var.prod_hostedzone_id
+  name    = var.aws_profile == "dev" ? var.dev_A_record_name : var.prod_A_record_name
+  type    = "A"
+  ttl     = 60
+  records = [aws_eip.elastic_ip.public_ip]
+}
+
 resource "aws_instance" "webapp_ec2" {
   ami                         = var.ami_id
   instance_type               = var.instance_type
@@ -435,12 +448,12 @@ After=network.target
 
 [Service]
 Environment="NODE_ENV=dev"
-Environment="DATABASE_PORT=3306"
-Environment="DATABASE_DIALECT=mysql"
-Environment="DATABASE_HOST=${element(split(":", aws_db_instance.rds_instance.endpoint), 0)}"
-Environment="DATABASE_USER=${aws_db_instance.rds_instance.username}"
-Environment="DATABASE_PASSWORD=${aws_db_instance.rds_instance.password}"
-Environment="DATABASE=${aws_db_instance.rds_instance.db_name}"
+Environment="DB_PORT=3306"
+Environment="DB_DIALECT=mysql"
+Environment="DB_HOST=${element(split(":", aws_db_instance.rds_instance.endpoint), 0)}"
+Environment="DB_USERNAME=${aws_db_instance.rds_instance.username}"
+Environment="DB_PASSWORD=${aws_db_instance.rds_instance.password}"
+Environment="DB_NAME=${aws_db_instance.rds_instance.db_name}"
 Environment="AWS_BUCKET_NAME=${aws_s3_bucket.webapp_s3_bucket.bucket}"
 Environment="AWS_REGION=${var.aws_region}"
 
@@ -461,11 +474,11 @@ sudo systemctl enable webapp.service
 
 echo 'export NODE_ENV=dev' >> /home/ec2-user/.bashrc,
 echo 'export PORT=3000' >> /home/ec2-user/.bashrc,
-echo 'export DATABASE_DIALECT=mysql' >> /home/ec2-user/.bashrc,
-echo 'export DATABASE_HOST=${element(split(":", aws_db_instance.rds_instance.endpoint), 0)}' >> /home/ec2-user/.bashrc,
-echo 'export DATABASE_USERNAME=${aws_db_instance.rds_instance.username}' >> /home/ec2-user/.bashrc,
-echo 'export DATABASE_PASSWORD=${aws_db_instance.rds_instance.password}' >> /home/ec2-user/.bashrc,
-echo 'export DATABASE_NAME=${aws_db_instance.rds_instance.db_name}' >> /home/ec2-user/.bashrc,
+echo 'export DB_DIALECT=mysql' >> /home/ec2-user/.bashrc,
+echo 'export DB_HOST=${element(split(":", aws_db_instance.rds_instance.endpoint), 0)}' >> /home/ec2-user/.bashrc,
+echo 'export DB_USERNAME=${aws_db_instance.rds_instance.username}' >> /home/ec2-user/.bashrc,
+echo 'export DB_PASSWORD=${aws_db_instance.rds_instance.password}' >> /home/ec2-user/.bashrc,
+echo 'export DB_NAME=${aws_db_instance.rds_instance.db_name}' >> /home/ec2-user/.bashrc,
 echo 'export AWS_BUCKET_NAME=${aws_s3_bucket.webapp_s3_bucket.bucket}' >> /home/ec2-user/.bashrc,
 echo 'export AWS_REGION=${var.aws_region}' >> /home/ec2-user/.bashrc,
 source /home/ec2-user/.bashrc

@@ -24,6 +24,8 @@
 #### Created a subdomain and hosted zone for the dev aws account
 #### Created a subdomain and hosted zone for the demo aws account
 #### Route53 is updated from the Terraform template.
+#### Updated the IAM role attached to the EC2 instance for use with CloudWatch Agent
+
 ## Execution steps
 
 ### terraform init

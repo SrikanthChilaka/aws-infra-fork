@@ -154,7 +154,7 @@ resource "random_uuid" "random_bucket_suffix" {
 
 resource "aws_s3_bucket" "webapp_s3_bucket" {
   bucket = "webapp-s3-${var.aws_profile}-${random_uuid.random_bucket_suffix.result}"
-  # acl    = "private"
+  acl    = "private"
   # server_side_encryption_configuration {
   #   rule {
   #     apply_server_side_encryption_by_default {
@@ -330,7 +330,7 @@ resource "aws_security_group_rule" "rds_egress" {
   source_security_group_id = aws_security_group.application.id
 }
 
-resource "aws_security_group_rule" "ec2_ingress" {
+resource "aws_security_group_rule" "ec2_ingress_db" {
   type                     = "ingress"
   from_port                = var.ports[5]
   to_port                  = var.ports[5]
@@ -345,32 +345,34 @@ resource "aws_security_group" "application" {
   vpc_id      = aws_vpc.vpc_1.id
 
   ingress {
-    from_port   = var.ports[3]
-    to_port     = var.ports[3]
-    protocol    = "tcp"
-    cidr_blocks = [var.rt_cidr]
+    from_port       = var.ports[3]
+    to_port         = var.ports[3]
+    protocol        = "tcp"
+    cidr_blocks     = [var.rt_cidr]
+    security_groups = [aws_security_group.lb_sg.id]
   }
 
-  ingress {
-    from_port   = var.ports[1]
-    to_port     = var.ports[1]
-    protocol    = "tcp"
-    cidr_blocks = [var.rt_cidr]
-  }
+  # ingress {
+  #   from_port   = var.ports[1]
+  #   to_port     = var.ports[1]
+  #   protocol    = "tcp"
+  #   cidr_blocks = [var.rt_cidr]
+  # }
 
   ingress {
-    from_port   = var.ports[0]
-    to_port     = var.ports[0]
-    protocol    = "tcp"
-    cidr_blocks = [var.rt_cidr]
+    from_port       = var.ports[0]
+    to_port         = var.ports[0]
+    protocol        = "tcp"
+    cidr_blocks     = [var.rt_cidr]
+    security_groups = [aws_security_group.lb_sg.id]
   }
 
-  ingress {
-    from_port   = var.ports[2]
-    to_port     = var.ports[2]
-    protocol    = "tcp"
-    cidr_blocks = [var.rt_cidr]
-  }
+  # ingress {
+  #   from_port   = var.ports[2]
+  #   to_port     = var.ports[2]
+  #   protocol    = "tcp"
+  #   cidr_blocks = [var.rt_cidr]
+  # }
 
   egress {
     from_port = var.ports[5]
@@ -410,17 +412,22 @@ resource "aws_key_pair" "app_key_pair" {
 #   }
 # }
 
-resource "aws_eip" "elastic_ip" {
-  instance = aws_instance.webapp_ec2.id
-  vpc      = true
-}
+# resource "aws_eip" "elastic_ip" {
+#   instance = aws_instance.webapp_ec2.id
+#   vpc      = true
+# }
 
 resource "aws_route53_record" "srikanthchilaka_A_record" {
   zone_id = var.aws_profile == "dev" ? var.dev_hostedzone_id : var.prod_hostedzone_id
   name    = var.aws_profile == "dev" ? var.dev_A_record_name : var.prod_A_record_name
   type    = "A"
-  ttl     = 60
-  records = [aws_eip.elastic_ip.public_ip]
+  # ttl     = 60
+  # records = [aws_eip.elastic_ip.public_ip]
+  alias {
+    name                   = aws_lb.webapp_lb.dns_name
+    zone_id                = aws_lb.webapp_lb.zone_id
+    evaluate_target_health = true
+  }
 }
 
 resource "aws_iam_instance_profile" "ec2_iam_instance_profile" {
@@ -466,25 +473,172 @@ resource "aws_iam_role_policy_attachment" "cloudwatch_agent_policy_attachment" {
   role       = aws_iam_role.s3_access_role.name
 }
 
-resource "aws_instance" "webapp_ec2" {
-  ami                         = var.ami_id
-  instance_type               = var.instance_type
-  subnet_id                   = aws_subnet.public_subnets_1[0].id
-  vpc_security_group_ids      = [aws_security_group.application.id]
+resource "aws_lb" "webapp_lb" {
+  name               = "web-application-load-balancer"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.lb_sg.id]
+  subnets            = [for subnet in aws_subnet.public_subnets_1 : subnet.id]
+
+  # enable_deletion_protection = true
+
+  tags = {
+    Environment = "development"
+  }
+}
+
+resource "aws_security_group" "lb_sg" {
+  name_prefix = "load_balancer_security_group"
+  description = "Security group for load balancer"
+  vpc_id      = aws_vpc.vpc_1.id
+  ingress {
+    from_port   = var.ports[1]
+    to_port     = var.ports[1]
+    protocol    = "tcp"
+    cidr_blocks = [var.rt_cidr]
+  }
+
+  ingress {
+    from_port   = var.ports[2]
+    to_port     = var.ports[2]
+    protocol    = "tcp"
+    cidr_blocks = [var.rt_cidr]
+  }
+  egress {
+    from_port   = var.ports[3]
+    to_port     = var.ports[3]
+    protocol    = "tcp"
+    cidr_blocks = [var.rt_cidr]
+  }
+  tags = {
+    Name = "load_balancer_security_group"
+  }
+}
+
+resource "aws_lb_target_group" "web_tg" {
+  name     = "tf-lb-tg"
+  port     = 3000
+  protocol = "HTTP"
+  vpc_id   = aws_vpc.vpc_1.id
+  health_check {
+    path                = "/healthz"
+    protocol            = "HTTP"
+    interval            = 30
+    timeout             = 10
+    healthy_threshold   = 3
+    unhealthy_threshold = 3
+    matcher             = "200"
+  }
+  tags = {
+    Name = "tf-lb-tg"
+  }
+}
+
+# resource "aws_lb_target_group_attachment" "attacht" {
+#   target_group_arn = aws_lb_target_group.web_tg.arn
+#   target_id        = aws_instance.webapp_ec2.id
+#   port             = 3000
+# }
+resource "aws_lb_listener" "web_tgl" {
+  load_balancer_arn = aws_lb.webapp_lb.arn
+  port              = 80
+  protocol          = "HTTP"
+
+  default_action {
+    target_group_arn = aws_lb_target_group.web_tg.arn
+    type             = "forward"
+  }
+}
+
+resource "aws_autoscaling_group" "webapp_asg" {
+  name                 = "webapp_auto_scaling_group"
+  launch_configuration = aws_launch_configuration.asg_launch_config.id
+  min_size             = 1
+  max_size             = 3
+  desired_capacity     = 1
+  vpc_zone_identifier  = [aws_subnet.public_subnets_1[0].id, aws_subnet.public_subnets_1[1].id, aws_subnet.public_subnets_1[2].id]
+  health_check_type    = "EC2"
+  target_group_arns    = [aws_lb_target_group.web_tg.arn]
+
+  lifecycle {
+    create_before_destroy = true
+  }
+
+}
+
+resource "aws_autoscaling_policy" "scale_up_policy" {
+  name                    = "scale_up_policy"
+  policy_type             = "SimpleScaling"
+  adjustment_type         = "ChangeInCapacity"
+  autoscaling_group_name  = aws_autoscaling_group.webapp_asg.name
+  scaling_adjustment      = 1
+  cooldown                = 60
+  metric_aggregation_type = "Average"
+}
+
+resource "aws_autoscaling_policy" "scale_down_policy" {
+  name                    = "scale_down_policy"
+  policy_type             = "SimpleScaling"
+  adjustment_type         = "ChangeInCapacity"
+  autoscaling_group_name  = aws_autoscaling_group.webapp_asg.name
+  scaling_adjustment      = -1
+  cooldown                = 60
+  metric_aggregation_type = "Average"
+}
+
+resource "aws_cloudwatch_metric_alarm" "scale_up_alarm" {
+  alarm_name          = "scale_up_alarm"
+  alarm_description   = "scaleupalarm"
+  evaluation_periods  = "2"
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/EC2"
+  period              = "30"
+  statistic           = "Average"
+  threshold           = "5"
+  dimensions = {
+    "AutoScalingGroupName" = "${aws_autoscaling_group.webapp_asg.name}"
+  }
+  actions_enabled = true
+  alarm_actions   = ["${aws_autoscaling_policy.scale_up_policy.arn}"]
+}
+
+resource "aws_cloudwatch_metric_alarm" "scale_down_alarm" {
+  alarm_name          = "scale_down_alarm"
+  alarm_description   = "scaledownalarm"
+  evaluation_periods  = "2"
+  comparison_operator = "LessThanOrEqualToThreshold"
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/EC2"
+  period              = "120"
+  statistic           = "Average"
+  threshold           = "2"
+  dimensions = {
+    "AutoScalingGroupName" = "${aws_autoscaling_group.webapp_asg.name}"
+  }
+  actions_enabled = true
+  alarm_actions   = ["${aws_autoscaling_policy.scale_down_policy.arn}"]
+}
+
+resource "aws_launch_configuration" "asg_launch_config" {
+  image_id      = var.ami_id
+  instance_type = var.instance_type
+  # subnet_id                   = aws_subnet.public_subnets_1[0].id
+  security_groups             = [aws_security_group.application.id]
   key_name                    = aws_key_pair.app_key_pair.key_name
   associate_public_ip_address = true
-  ebs_optimized               = false
-  iam_instance_profile        = aws_iam_instance_profile.s3_access_instance_profile.name
+  # ebs_optimized               = false
+  iam_instance_profile = aws_iam_instance_profile.s3_access_instance_profile.name
   root_block_device {
     volume_size           = var.ebs_vol_size
     volume_type           = var.ebs_vol_type
     delete_on_termination = true
   }
-  disable_api_termination = false
+  # disable_api_termination = false
 
-  tags = {
-    Name = var.ec2_name
-  }
+  # tags = {
+  #   Name = var.ec2_name
+  # }
   user_data = <<EOT
 #!/bin/bash
 cat <<EOF > /etc/systemd/system/webapp.service

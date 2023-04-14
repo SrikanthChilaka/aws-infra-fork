@@ -25,6 +25,10 @@
 #### Created a subdomain and hosted zone for the demo aws account
 #### Route53 is updated from the Terraform template.
 #### Updated the IAM role attached to the EC2 instance for use with CloudWatch Agent
+#### Set up an Application load balancer to accept HTTPS traffic on port 443 and forwarded it to the application instances on whatever port it listens on.
+#### Attached the load balancer security group to the load balancer.
+#### Encrypted EBS Volumes
+#### Encrypted RDS Instances
 
 ## Execution steps
 

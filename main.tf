@@ -288,6 +288,8 @@ resource "aws_db_instance" "rds_instance" {
   parameter_group_name   = aws_db_parameter_group.rds_parameter_group.name
   allocated_storage      = 20
   skip_final_snapshot    = true
+  storage_encrypted      = true
+  kms_key_id             = aws_kms_key.rds_encryption_key.arn
   #   engine_version         = "5.7"
 
   tags = {
@@ -554,7 +556,7 @@ resource "aws_lb_listener" "web_tgl" {
     type             = "forward"
   }
   ssl_policy      = "ELBSecurityPolicy-2016-08"
-  certificate_arn = "${data.aws_acm_certificate.acm_cert.arn}"
+  certificate_arn = data.aws_acm_certificate.acm_cert.arn
 }
 
 resource "aws_kms_key" "ebs_encryption_key" {

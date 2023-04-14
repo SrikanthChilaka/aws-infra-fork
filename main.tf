@@ -473,6 +473,11 @@ resource "aws_iam_role_policy_attachment" "cloudwatch_agent_policy_attachment" {
   role       = aws_iam_role.s3_access_role.name
 }
 
+data "aws_acm_certificate" "acm_cert" {
+  domain   = var.prod_A_record_name
+  statuses = ["ISSUED"]
+}
+
 resource "aws_lb" "webapp_lb" {
   name               = "web-application-load-balancer"
   internal           = false
@@ -524,7 +529,7 @@ resource "aws_lb_target_group" "web_tg" {
     path                = "/healthz"
     protocol            = "HTTP"
     interval            = 30
-    timeout             = 10
+    timeout             = 20
     healthy_threshold   = 3
     unhealthy_threshold = 3
     matcher             = "200"
@@ -541,24 +546,150 @@ resource "aws_lb_target_group" "web_tg" {
 # }
 resource "aws_lb_listener" "web_tgl" {
   load_balancer_arn = aws_lb.webapp_lb.arn
-  port              = 80
-  protocol          = "HTTP"
+  port              = 443
+  protocol          = "HTTPS"
 
   default_action {
     target_group_arn = aws_lb_target_group.web_tg.arn
     type             = "forward"
   }
+  ssl_policy      = "ELBSecurityPolicy-2016-08"
+  certificate_arn = "${data.aws_acm_certificate.acm_cert.arn}"
+}
+
+resource "aws_kms_key" "ebs_encryption_key" {
+  description             = "Customer managed key for EBS encryption"
+  deletion_window_in_days = 7
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "Enable IAM User Permissions"
+        Effect = "Allow"
+        Principal = {
+          AWS = "*"
+        }
+        Action = [
+          "kms:*"
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "Allow access for Key Administrators"
+        Effect = "Allow"
+        Principal = {
+          AWS = "*"
+        }
+        Action = [
+          "kms:Create*",
+          "kms:Describe*",
+          "kms:Enable*",
+          "kms:List*",
+          "kms:Put*",
+          "kms:Update*",
+          "kms:Revoke*",
+          "kms:Disable*",
+          "kms:Get*",
+          "kms:Delete*",
+          "kms:TagResource",
+          "kms:UntagResource",
+          "kms:ScheduleKeyDeletion",
+          "kms:CancelKeyDeletion"
+        ],
+        Resource = "*"
+      },
+      {
+        Sid    = "Enable EBS Encryption"
+        Effect = "Allow"
+        Principal = {
+          AWS = "*"
+        }
+        Action = [
+          "kms:Encrypt*",
+          "kms:Decrypt*",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+resource "aws_kms_key" "rds_encryption_key" {
+  description             = "Customer managed key for EBS encryption"
+  deletion_window_in_days = 7
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "Enable IAM User Permissions"
+        Effect = "Allow"
+        Principal = {
+          AWS = "*"
+        }
+        Action = [
+          "kms:*"
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "Allow access for Key Administrators"
+        Effect = "Allow"
+        Principal = {
+          AWS = "*"
+        }
+        Action = [
+          "kms:Create*",
+          "kms:Describe*",
+          "kms:Enable*",
+          "kms:List*",
+          "kms:Put*",
+          "kms:Update*",
+          "kms:Revoke*",
+          "kms:Disable*",
+          "kms:Get*",
+          "kms:Delete*",
+          "kms:TagResource",
+          "kms:UntagResource",
+          "kms:ScheduleKeyDeletion",
+          "kms:CancelKeyDeletion"
+        ],
+        Resource = "*"
+      },
+      {
+        Sid    = "Enable EBS Encryption"
+        Effect = "Allow"
+        Principal = {
+          AWS = "*"
+        }
+        Action = [
+          "kms:Encrypt*",
+          "kms:Decrypt*",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
 }
 
 resource "aws_autoscaling_group" "webapp_asg" {
-  name                 = "webapp_auto_scaling_group"
-  launch_configuration = aws_launch_configuration.asg_launch_config.id
-  min_size             = 1
-  max_size             = 3
-  desired_capacity     = 1
-  vpc_zone_identifier  = [aws_subnet.public_subnets_1[0].id, aws_subnet.public_subnets_1[1].id, aws_subnet.public_subnets_1[2].id]
-  health_check_type    = "EC2"
-  target_group_arns    = [aws_lb_target_group.web_tg.arn]
+  name                      = "webapp_asg"
+  health_check_grace_period = 1200
+  launch_template {
+    id      = aws_launch_template.webapp_asg_launch_template.id
+    version = "$Latest"
+  }
+  min_size            = 1
+  max_size            = 3
+  desired_capacity    = 1
+  vpc_zone_identifier = [aws_subnet.public_subnets_1[0].id, aws_subnet.public_subnets_1[1].id, aws_subnet.public_subnets_1[2].id]
+  health_check_type   = "EC2"
+  target_group_arns   = [aws_lb_target_group.web_tg.arn]
 
   lifecycle {
     create_before_destroy = true
@@ -589,11 +720,12 @@ resource "aws_autoscaling_policy" "scale_down_policy" {
 resource "aws_cloudwatch_metric_alarm" "scale_up_alarm" {
   alarm_name          = "scale_up_alarm"
   alarm_description   = "scaleupalarm"
-  evaluation_periods  = "2"
+  evaluation_periods  = "1"
   comparison_operator = "GreaterThanOrEqualToThreshold"
   metric_name         = "CPUUtilization"
   namespace           = "AWS/EC2"
-  period              = "30"
+  period              = "60"
+  treat_missing_data  = "notBreaching"
   statistic           = "Average"
   threshold           = "5"
   dimensions = {
@@ -620,28 +752,42 @@ resource "aws_cloudwatch_metric_alarm" "scale_down_alarm" {
   alarm_actions   = ["${aws_autoscaling_policy.scale_down_policy.arn}"]
 }
 
-resource "aws_launch_configuration" "asg_launch_config" {
+resource "aws_launch_template" "webapp_asg_launch_template" {
+  name          = "webapp_asg_launch_template"
   image_id      = var.ami_id
   instance_type = var.instance_type
-  # subnet_id                   = aws_subnet.public_subnets_1[0].id
-  security_groups             = [aws_security_group.application.id]
-  key_name                    = aws_key_pair.app_key_pair.key_name
-  associate_public_ip_address = true
-  # ebs_optimized               = false
-  iam_instance_profile = aws_iam_instance_profile.s3_access_instance_profile.name
-  root_block_device {
-    volume_size           = var.ebs_vol_size
-    volume_type           = var.ebs_vol_type
-    delete_on_termination = true
-  }
+  key_name      = aws_key_pair.app_key_pair.key_name
   # disable_api_termination = false
+  # ebs_optimized           = false
+  block_device_mappings {
+    device_name = "/dev/xvda"
+
+    ebs {
+      volume_size           = var.ebs_vol_size
+      volume_type           = var.ebs_vol_type
+      delete_on_termination = true
+      encrypted             = true
+      kms_key_id            = aws_kms_key.ebs_encryption_key.arn
+    }
+  }
+  lifecycle {
+    create_before_destroy = true
+  }
+  network_interfaces {
+    associate_public_ip_address = true
+    # subnet_id                   = aws_subnet.public_subnets_1[0].id
+    security_groups = [aws_security_group.application.id]
+  }
+  iam_instance_profile {
+    name = aws_iam_instance_profile.s3_access_instance_profile.name
+  }
 
   # tags = {
   #   Name = var.ec2_name
   # }
-  user_data = <<EOT
+  user_data = base64encode(<<-EOF
 #!/bin/bash
-cat <<EOF > /etc/systemd/system/webapp.service
+cat <<EOT > /etc/systemd/system/webapp.service
 [Unit]
 Description=Webapp Service
 After=network.target
@@ -664,9 +810,8 @@ ExecStart=/usr/bin/node listener.js
 Restart=on-failure
 
 [Install]
-WantedBy=multi-user.target" > /etc/systemd/system/webapp.service
-EOF
-
+WantedBy=multi-user.target
+EOT
 
 sudo systemctl daemon-reload
 sudo systemctl start webapp.service
@@ -682,6 +827,6 @@ echo 'export DB_NAME=${aws_db_instance.rds_instance.db_name}' >> /home/ec2-user/
 echo 'export AWS_BUCKET_NAME=${aws_s3_bucket.webapp_s3_bucket.bucket}' >> /home/ec2-user/.bashrc,
 echo 'export AWS_REGION=${var.aws_region}' >> /home/ec2-user/.bashrc,
 source /home/ec2-user/.bashrc
-EOT
-
+EOF
+  )
 }

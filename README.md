@@ -29,6 +29,7 @@
 #### Attached the load balancer security group to the load balancer.
 #### Encrypted EBS Volumes
 #### Encrypted RDS Instances
+#### RDS instance launched is encrypted with a separate key created as part of the Terraform template
 
 ## Execution steps
 

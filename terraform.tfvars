@@ -1,5 +1,5 @@
 aws_region           = "us-east-1"
-aws_profile          = "dev"
+aws_profile          = "demo"
 vpc_cidr             = ["10.0.0.0/16", "10.1.0.0/16"]
 availability_zones   = ["a", "b", "c"]
 vpc_name_1           = "vpc_1"
@@ -43,7 +43,7 @@ device_name          = "/dev/sdh"
 ebs_vol_name         = "ebs_volume"
 ec2_name             = "webapp_ec2"
 ssh_timeout          = "2h"
-ami_id               = "ami-01ec0603079356669"
+ami_id               = "ami-0ffce59cfa0732e5a"
 dev_hostedzone_id    = "Z024207512LXUWZJKPWQ6"
 prod_hostedzone_id   = "Z06439559L3ZF7W1X0QG"
 dev_A_record_name    = "dev.srikanthchilaka.me"

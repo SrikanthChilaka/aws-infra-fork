@@ -1,39 +1,13 @@
-# CSYE6225 Network Structures and Cloud Computing Assignment-9
+# AWS INFRA
 
-## Srikanth Chilaka - 002780059
+## Description
+This Terraform script creates a Virtual Private Cloud (VPC) in AWS and creates 3 public and 3 private subnets in different availability zones in the same region. It also creates an Internet Gateway, public and private route tables, and a public route in the public route table. It also creates a EC2 instance with neccessary security groups
+<img src="https://github.com/AbhilashGade/aws-infra/blob/main/Untitled-2022-10-25-0755%20(1).png"  title="Infra provisioned">
 
-## Aim
+## Instructions
 
-### Install and Configure AWS Command Line Interface
-### Setting up our networking resources such as Virtual Private Cloud (VPC), Internet Gateway, Route Table, Subnets and Routes using Terraform for infrastructure setup and tear down.
+* Open the terminal and navigate to the project directory.
 
-
-## Prerequisites
-
-### Before running the Terraform script, we should have the following:
-
-#### An AWS account with necessary permissions to create VPC, subnets, and other resources.
-#### Terraform installed on our local machine.
-#### AWS Command Line Interface installed and configured
-#### The EC2 instance is launched in the VPC created by the Terraform template.
-#### Added app security group
-#### Create EC2 instance with the required specifications.
-#### Create DB Security Group, S3 Bucket, RDS Parameter Group, RDS Instance.
-#### Configured Amazon Route 53 For DNS Service
-#### Created hosted zone for the domain in the root aws account
-#### Created a subdomain and hosted zone for the dev aws account
-#### Created a subdomain and hosted zone for the demo aws account
-#### Route53 is updated from the Terraform template.
-#### Updated the IAM role attached to the EC2 instance for use with CloudWatch Agent
-#### Set up an Application load balancer to accept HTTPS traffic on port 443 and forwarded it to the application instances on whatever port it listens on.
-#### Attached the load balancer security group to the load balancer.
-#### Encrypted EBS Volumes
-#### Encrypted RDS Instances
-#### RDS instance launched is encrypted with a separate key created as part of the Terraform template
-
-## Execution steps
-
-### terraform init
-### terraform plan
-### terraform apply
-### terraform destroy
+* Run `terraform init` to initialize the project and download necessary plugins.
+* Run `terraform plan` to review the changes that will be made to your AWS infrastructure.
+* Run `terraform destroy` to destroy the VPC
